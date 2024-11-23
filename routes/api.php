@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ConsultationController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\UsersController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,7 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'profile']);
         Route::put('/profile/update', [AuthController::class, 'updateProfile']);
+        Route::get('/dashboard', [DashboardController::class, 'index']);
 
         //FOR FINDERS
         Route::get('/experts', [UsersController::class, 'getExperts']);
@@ -43,7 +45,7 @@ Route::middleware(['cors'])->group(function () {
      //ADMIN ROUTES
      Route::middleware(['auth:sanctum', 'is_admin'])->group(function () {
         Route::get('/admin/getAllUsers', [AdminController::class, 'getAllUsers']); // Add this line
-        Route::get('/consultation-logs', [AdminController::class, 'getConsultationLogs']);
+        Route::get('/admin/consultation-logs', [AdminController::class, 'getConsultationLogs']);
         Route::get('/admin/dashboard', [AdminController::class, 'index']);
         Route::get('/admin/getAllUpdates', [AdminController::class, 'getAllUpdates']);
         Route::post('/admin/postUpdate', [AdminController::class, 'postUpdate']);

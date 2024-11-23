@@ -12,9 +12,12 @@ class AdminController extends Controller
 {
     public function index(): JsonResponse
     {
-        // Fetch data to show on the admin dashboard
-        // Example: return a list of updates or statistics
-        return response()->json(['message' => 'Welcome to the Admin Dashboard']);
+        $data = [
+            'updates' => Update::all(), // Example: Fetch all updates
+            // Add more finder-specific data here
+        ];
+        
+        return response()->json($data, 200);
     }
 
     public function getAllUsers(): JsonResponse
