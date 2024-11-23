@@ -15,7 +15,12 @@ class Surveyor extends Model
    // Specify the collection name if it's not the plural of the model name
    protected $collection = 'surveyors'; // Optional, usually not required if the collection is named "users"
 
-    protected $fillable = ['user_id', 'license_number', 'certification_id', 'pricing'];
+    protected $fillable = [
+        'user_id', 
+        'license_number',
+        'certification_id', 
+        //'pricing'
+    ];
 
     public function user()
     {

@@ -31,7 +31,7 @@ class UsersController extends Controller
                'email' => $expert->email,
                'certification_id' => $expert->landExpert->certification_id ?? null,
                'license_number' => $expert->landExpert->license_number ?? null,
-               'pricing' => $expert->landExpert->pricing ?? null,
+               //'pricing' => $expert->landExpert->pricing ?? null,
            ];
        });
    
@@ -64,7 +64,7 @@ public function getSurveyors(Request $request): JsonResponse
             'email' => $surveyor->email,
             'certification_id' => $surveyor->surveyor->certification_id ?? null,
             'license_number' => $surveyor->surveyor->license_number ?? null,
-            'pricing' => $surveyor->surveyor->pricing ?? null,
+            //'pricing' => $surveyor->surveyor->pricing ?? null,
         ];
     });
 

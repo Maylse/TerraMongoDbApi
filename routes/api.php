@@ -6,8 +6,6 @@ use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\UsersController;
 use Illuminate\Support\Facades\Route;
 
-
-
 Route::middleware(['cors'])->group(function () {
    
     //ENTRY POINTS
@@ -41,6 +39,9 @@ Route::middleware(['cors'])->group(function () {
         //FOR BOTH EXPERTS AND SURVEYORS
         Route::post('/consultation/accept/{id}', [ConsultationController::class, 'acceptRequest']);
         Route::post('/consultation/decline/{id}', [ConsultationController::class, 'declineRequest']);
+
+          // Get consultation logs for the authenticated user
+          Route::get('/consultation/logs', [ConsultationController::class, 'getConsultationLogs']);
     
     });
      //ADMIN ROUTES

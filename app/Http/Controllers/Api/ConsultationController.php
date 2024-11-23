@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ConsultationLog;
 use App\Models\ConsultationRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class ConsultationController extends Controller
     {
         // Fetch all consultation requests for the authenticated finder
         $requests = ConsultationRequest::where('finder_id', $request->user()->id)
+            ->where('status', 'pending')
             ->with(['expert', 'surveyor']) // Load the related expert and surveyor data
             ->get();
     
@@ -27,12 +29,16 @@ class ConsultationController extends Controller
 
     public function requestExpertConsultation(Request $request): JsonResponse
     {
-        // Validate the incoming request data for experts
-        $request->validate([
+         // Validate the incoming request data for experts
+         $request->validate([
             'expert_id' => 'required|exists:users,id', // Ensure the user exists and is an expert
             'message' => 'required|string|max:500', // Limit message length
+            'date' => 'required|date', // Validate the date field
+            'time' => 'required|date_format:h:i A', // Ensure time is in 12-hour format (with AM/PM)
+            'location' => 'required|string|max:255', // Ensure location is a string with max length
+            'rate' => 'required|numeric|min:0', // Validate the rate field to be a number greater than or equal to 0
         ]);
-    
+
         // Fetch the expert ID based on the user ID of the authenticated user
         $expert = User::where('user_type', 'expert')
                       ->where('id', $request->expert_id) // Assuming you have expert_id in the request
@@ -49,7 +55,11 @@ class ConsultationController extends Controller
             'finder_id' => $request->user()->id, // Get the authenticated finder's ID
             'expert_id' => $expert->id, // Expert's ID from the retrieved user
             'message' => $request->message,
-             'status' => 'pending'
+             'status' => 'pending',
+             'date' => $request->date, // Save the date
+             'time' => $this->formatTime($request->time), // Save the time in 12-hour format
+             'location' => $request->location, // Save the location
+             'rate' => $request->rate, // Save the rate
         ]);
     
         // Return success response
@@ -63,8 +73,12 @@ class ConsultationController extends Controller
     {
         // Validate the incoming request data for surveyors
         $request->validate([
+            'expert_id' => 'required|exists:users,id', // Ensure the user exists and is an expert
             'message' => 'required|string|max:500', // Limit message length
-            'surveyor_id' => 'required|exists:users,id', // Ensure the user exists and is a surveyor
+            'date' => 'required|date', // Validate the date field
+            'time' => 'required|date_format:h:i A', // Ensure time is in 12-hour format (with AM/PM)
+            'location' => 'required|string|max:255', // Ensure location is a string with max length
+            'rate' => 'required|numeric|min:0', // Validate the rate field to be a number greater than or equal to 0
         ]);
     
         // Fetch the surveyor ID based on the user ID of the authenticated user
@@ -78,12 +92,16 @@ class ConsultationController extends Controller
             ], 404);
         }
     
-        // Create the consultation request for the surveyor
+        // Create the consultation request for the expert
         $consultation = ConsultationRequest::create([
             'finder_id' => $request->user()->id, // Get the authenticated finder's ID
-            'surveyor_id' => $surveyor->id, // Surveyor's ID from the retrieved user
+            'surveyor_id' => $surveyor->id, // Expert's ID from the retrieved user
             'message' => $request->message,
-            'status' => 'pending',
+             'status' => 'pending',
+             'date' => $request->date, // Save the date
+             'time' => $this->formatTime($request->time), // Save the time in 12-hour format
+             'location' => $request->location, // Save the location
+             'rate' => $request->rate, // Save the rate
         ]);
     
         // Return success response
@@ -92,38 +110,59 @@ class ConsultationController extends Controller
             'consultation' => $consultation,
         ], 201);
     }
-    
 
-
+    //FORMAT TIME
+    protected function formatTime($time)
+        {
+            try {
+                // Convert the time to a 12-hour format (with AM/PM)
+                $formattedTime = \Carbon\Carbon::createFromFormat('h:i A', $time)->format('g:i A');
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Invalid time format'], 400);
+            }
+            
+            return $formattedTime;
+        }
 
     //UPDATE 
-    public function updateRequest(Request $request, $id): JsonResponse
-    {
-        // Validate the incoming request data
-        $request->validate([
-            'message' => 'required|string|max:500', // Limit message length
-        ]);
-    
-        // Find the consultation request by ID
-        $consultationRequest = ConsultationRequest::where('id', $id)
-            ->where('finder_id', $request->user()->id) // Ensure the request belongs to the authenticated finder
-            ->first();
-    
-        if (!$consultationRequest) {
-            return response()->json(['message' => 'Consultation request not found or unauthorized.'], 404);
-        }
-    
-        // Check if the status is still pending
-        if ($consultationRequest->status !== 'pending') {
-            return response()->json(['message' => 'You can only edit requests with a pending status.'], 403);
-        }
-    
-        // Update the message
-        $consultationRequest->message = $request->message;
-        $consultationRequest->save();
-    
-        return response()->json(['message' => 'Consultation request updated successfully.', 'request' => $consultationRequest], 200);
+  public function updateRequest(Request $request, $id): JsonResponse
+{
+    // Validate the incoming request data
+    $request->validate([
+        'message' => 'required|string|max:500', // Limit message length
+        'date' => 'required|date', // Ensure date is valid
+        'time' => 'required|date_format:h:i A', // Ensure time is in 12-hour format (with AM/PM)
+        'rate' => 'required|numeric|min:0', // Ensure rate is a valid number and non-negative
+    ]);
+
+    // Find the consultation request by ID
+    $consultationRequest = ConsultationRequest::where('id', $id)
+        ->where('finder_id', $request->user()->id) // Ensure the request belongs to the authenticated finder
+        ->first();
+
+    if (!$consultationRequest) {
+        return response()->json(['message' => 'Consultation request not found or unauthorized.'], 404);
     }
+
+    // Check if the status is still pending
+    if ($consultationRequest->status !== 'pending') {
+        return response()->json(['message' => 'You can only edit requests with a pending status.'], 403);
+    }
+
+    // Update the fields
+    $consultationRequest->message = $request->message;
+    $consultationRequest->date = $request->date;
+    $consultationRequest->time = $this->formatTime($request->time); // Ensure time is properly formatted
+    $consultationRequest->rate = $request->rate;
+
+    // Save the updated consultation request
+    $consultationRequest->save();
+
+    return response()->json([
+        'message' => 'Consultation request updated successfully.',
+        'request' => $consultationRequest,
+    ], 200);
+}
 
     public function deleteRequest(Request $request, $id): JsonResponse
     {
@@ -159,7 +198,9 @@ class ConsultationController extends Controller
         ], 403);
     }
     // Fetch consultation requests where the expert_id matches the logged-in expert's ID
-    $requests = ConsultationRequest::where('expert_id', $request->user()->id)->get();
+    $requests = ConsultationRequest::where('expert_id', $request->user()->id)
+    ->where('status', 'pending')
+    ->get();
     // Return the list of consultation requests
     return response()->json([
         'requests' => $requests
@@ -186,7 +227,9 @@ class ConsultationController extends Controller
     }
 
     // Fetch consultation requests where the surveyor_id matches the logged-in surveyor's ID
-    $requests = ConsultationRequest::where('surveyor_id', $request->user()->_id)->get();
+    $requests = ConsultationRequest::where('surveyor_id', $request->user()->_id)
+    ->where('status', 'pending')
+    ->get();
 
     // Handle case when no requests are found
     if ($requests->isEmpty()) {
@@ -205,28 +248,37 @@ class ConsultationController extends Controller
 
 
 //BOTH SURVEYOR AND LAND EXPERT
-public function acceptRequest(Request $request, $id): JsonResponse{
+public function acceptRequest(Request $request, $id): JsonResponse {
     // Validate the request
     $request->validate([
-        'response_message' => 'nullable|string|max:500', // Optional response message
+        'response_message' => 'nullable|string|max:500',
     ]);
+
     // Find the consultation request
     $consultationRequest = ConsultationRequest::findOrFail($id);
 
-    // Check if the authenticated user is either the expert or surveyor for this request
-    if ($request->user()->user_type === 'expert' && $consultationRequest->expert_id === $request->user()->id) {
+    // Check if the authenticated user is authorized to accept the request
+    $user = $request->user();
+    if (($user->user_type === 'expert' && $consultationRequest->expert_id === $user->id) ||
+        ($user->user_type === 'surveyor' && $consultationRequest->surveyor_id === $user->id)) {
+
+        // Update consultation request status
         $consultationRequest->status = 'accepted';
-        $consultationRequest->response_message = $request->response_message;
+        $consultationRequest->response_message = $request->input('response_message');
         $consultationRequest->save();
 
-        return response()->json([
-            'message' => 'Consultation request accepted successfully.',
-            'consultation' => $consultationRequest,
-        ], 200);
-    } elseif ($request->user()->user_type === 'surveyor' && $consultationRequest->surveyor_id === $request->user()->id) {
-        $consultationRequest->status = 'accepted';
-        $consultationRequest->response_message = $request->response_message;
-        $consultationRequest->save();
+        // Create a log entry with additional fields
+        ConsultationLog::create([
+            'consultation_request_id' => $consultationRequest->id,
+            'user_id' => $user->id,
+            'status' => 'accepted',
+            'response_message' => $request->input('response_message'),
+            'message' => $consultationRequest->message,       // Pass consultation request data
+            'date' => $consultationRequest->date,
+            'time' => $consultationRequest->time,
+            'location' => $consultationRequest->location,
+            'rate' => $consultationRequest->rate,
+        ]);
 
         return response()->json([
             'message' => 'Consultation request accepted successfully.',
@@ -237,26 +289,38 @@ public function acceptRequest(Request $request, $id): JsonResponse{
     return response()->json(['message' => 'Unauthorized action.'], 403);
 }
 
-public function declineRequest(Request $request, $id): JsonResponse{
+public function declineRequest(Request $request, $id): JsonResponse {
     // Validate the request
     $request->validate([
-        'response_message' => 'nullable|string|max:500', // Optional response message
+        'response_message' => 'nullable|string|max:500',
     ]);
+
     // Find the consultation request
     $consultationRequest = ConsultationRequest::findOrFail($id);
-    // Check if the authenticated user is either the expert or surveyor for this request
-    if ($request->user()->user_type === 'expert' && $consultationRequest->expert_id === $request->user()->id) {
+
+    // Check if the authenticated user is authorized to decline the request
+    $user = $request->user();
+    if (($user->user_type === 'expert' && $consultationRequest->expert_id === $user->id) ||
+        ($user->user_type === 'surveyor' && $consultationRequest->surveyor_id === $user->id)) {
+
+        // Update consultation request status
         $consultationRequest->status = 'declined';
-        $consultationRequest->response_message = $request->response_message;
+        $consultationRequest->response_message = $request->input('response_message');
         $consultationRequest->save();
-        return response()->json([
-            'message' => 'Consultation request declined successfully.',
-            'consultation' => $consultationRequest,
-        ], 200);
-    } elseif ($request->user()->user_type === 'surveyor' && $consultationRequest->surveyor_id === $request->user()->id) {
-        $consultationRequest->status = 'declined';
-        $consultationRequest->response_message = $request->response_message;
-        $consultationRequest->save();
+
+        // Create a log entry with additional fields
+        ConsultationLog::create([
+            'consultation_request_id' => $consultationRequest->id,
+            'user_id' => $user->id,
+            'status' => 'declined',
+            'response_message' => $request->input('response_message'),
+            'message' => $consultationRequest->message,       // Pass consultation request data
+            'date' => $consultationRequest->date,
+            'time' => $consultationRequest->time,
+            'location' => $consultationRequest->location,
+            'rate' => $consultationRequest->rate,
+        ]);
+
         return response()->json([
             'message' => 'Consultation request declined successfully.',
             'consultation' => $consultationRequest,
@@ -265,6 +329,27 @@ public function declineRequest(Request $request, $id): JsonResponse{
 
     return response()->json(['message' => 'Unauthorized action.'], 403);
 }
+
+    public function getConsultationLogs(Request $request): JsonResponse {
+        // Get the authenticated user
+        $user = $request->user();
+
+        // Get the consultation logs for the user, filtering by their user type (expert or surveyor)
+        $consultationLogs = ConsultationLog::where('user_id', $user->id)
+            ->with('consultationRequest') // Eager load the related consultation request details
+            ->get();
+
+        // Check if consultation logs are found
+        if ($consultationLogs->isEmpty()) {
+            return response()->json(['message' => 'No consultation logs found for this user.'], 404);
+        }
+
+        // Return the consultation logs in JSON format
+        return response()->json([
+            'message' => 'Consultation logs retrieved successfully.',
+            'consultation_logs' => $consultationLogs
+        ], 200);
+    }
 
 
 }

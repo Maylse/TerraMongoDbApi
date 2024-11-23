@@ -12,10 +12,14 @@ class ConsultationRequest extends Model
     protected $collection = 'consultation_requests';
     protected $fillable = [
         'finder_id',
-        'expert_id', 
+        'expert_id',
         'surveyor_id',
         'message',
-        'status'
+        'status',
+        'date',
+        'time',
+        'location',
+        'rate'
     ];
 
     public function finder()

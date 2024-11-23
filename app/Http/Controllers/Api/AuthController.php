@@ -73,7 +73,7 @@ return response()->json([
                 'user_type' => 'required|in:finder,expert,surveyor',
                 'certification_id' => 'required_if:user_type,surveyor,expert|string|unique:land_experts,certification_id|unique:surveyors,certification_id',
                 'license_number' => 'required_if:user_type,surveyor,expert|string|unique:land_experts,license_number|unique:surveyors,license_number',
-                'pricing' => 'required_if:user_type,surveyor,expert|numeric',
+                //'pricing' => 'required_if:user_type,surveyor,expert|numeric',
             ]);
 
             $hashedPassword = Hash::make($request->password);
@@ -99,14 +99,14 @@ return response()->json([
                     'user_id' => $user->id,
                     'license_number' => $request->license_number,
                     'certification_id' => $request->certification_id,
-                    'pricing' => $request->pricing,
+                    //'pricing' => $request->pricing,
                 ]);
             } elseif ($user->user_type === 'surveyor') {
                 Surveyor::create([
                     'user_id' => $user->id,
                     'certification_id' => $request->certification_id,
                     'license_number' => $request->license_number,
-                    'pricing' => $request->pricing,
+                    //'pricing' => $request->pricing,
                 ]);
             } elseif ($user->user_type === 'finder') {
                 Finder::create([

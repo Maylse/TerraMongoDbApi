@@ -18,7 +18,7 @@ class LandExpert extends Model
        protected $fillable = [
         'certification_id',
         'license_number',
-        'pricing',
+        //'pricing',
         'user_id', // Assuming a foreign key to relate back to the User model
     ];
     public function user()
