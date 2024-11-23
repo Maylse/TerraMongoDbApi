@@ -39,14 +39,11 @@ Route::middleware(['cors'])->group(function () {
         //FOR BOTH EXPERTS AND SURVEYORS
         Route::post('/consultation/accept/{id}', [ConsultationController::class, 'acceptRequest']);
         Route::post('/consultation/decline/{id}', [ConsultationController::class, 'declineRequest']);
-
-          // Get consultation logs for the authenticated user
-          Route::get('/consultation/logs', [ConsultationController::class, 'getConsultationLogs']);
-    
     });
      //ADMIN ROUTES
      Route::middleware(['auth:sanctum', 'is_admin'])->group(function () {
         Route::get('/admin/getAllUsers', [AdminController::class, 'getAllUsers']); // Add this line
+        Route::get('/consultation-logs', [AdminController::class, 'getConsultationLogs']);
         Route::get('/admin/dashboard', [AdminController::class, 'index']);
         Route::get('/admin/getAllUpdates', [AdminController::class, 'getAllUpdates']);
         Route::post('/admin/postUpdate', [AdminController::class, 'postUpdate']);

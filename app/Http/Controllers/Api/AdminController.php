@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\User;
 use App\Models\Update;
 use App\Http\Controllers\Controller;
+use App\Models\ConsultationLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -25,6 +26,17 @@ class AdminController extends Controller
         'users' => $users,
     ], 200);
 }
+
+public function getConsultationLogs(): JsonResponse
+{
+    // Fetch all consultation logs
+    $consultationLogs = ConsultationLog::with('consultationRequest')->get();
+
+    return response()->json([
+        'consultation_logs' => $consultationLogs,
+    ], 200);
+}
+
 
     public function getAllUpdates(): JsonResponse
     {

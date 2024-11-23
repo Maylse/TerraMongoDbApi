@@ -17,7 +17,6 @@ class ConsultationController extends Controller
     {
         // Fetch all consultation requests for the authenticated finder
         $requests = ConsultationRequest::where('finder_id', $request->user()->id)
-            ->where('status', 'pending')
             ->with(['expert', 'surveyor']) // Load the related expert and surveyor data
             ->get();
     
@@ -192,9 +191,6 @@ class ConsultationController extends Controller
         return response()->json(['message' => 'Consultation request deleted successfully.'], 200);
     }
 
-
-
-
     //FOR EXPERTS
     public function getExpertConsultationRequests(Request $request): JsonResponse{
     // Check if the authenticated user is an expert
@@ -205,15 +201,12 @@ class ConsultationController extends Controller
     }
     // Fetch consultation requests where the expert_id matches the logged-in expert's ID
     $requests = ConsultationRequest::where('expert_id', $request->user()->id)
-    ->where('status', 'pending')
     ->get();
     // Return the list of consultation requests
     return response()->json([
         'requests' => $requests
     ], 200);
 }
-
-
 
     //FOR SURVEYORS
     public function getSurveyorConsultationRequests(Request $request): JsonResponse
@@ -234,9 +227,7 @@ class ConsultationController extends Controller
 
     // Fetch consultation requests where the surveyor_id matches the logged-in surveyor's ID
     $requests = ConsultationRequest::where('surveyor_id', $request->user()->_id)
-    ->where('status', 'pending')
     ->get();
-
     // Handle case when no requests are found
     if ($requests->isEmpty()) {
         return response()->json([
@@ -335,27 +326,5 @@ public function declineRequest(Request $request, $id): JsonResponse {
 
     return response()->json(['message' => 'Unauthorized action.'], 403);
 }
-
-    public function getConsultationLogs(Request $request): JsonResponse {
-        // Get the authenticated user
-        $user = $request->user();
-
-        // Get the consultation logs for the user, filtering by their user type (expert or surveyor)
-        $consultationLogs = ConsultationLog::where('user_id', $user->id)
-            ->with('consultationRequest') // Eager load the related consultation request details
-            ->get();
-
-        // Check if consultation logs are found
-        if ($consultationLogs->isEmpty()) {
-            return response()->json(['message' => 'No consultation logs found for this user.'], 404);
-        }
-
-        // Return the consultation logs in JSON format
-        return response()->json([
-            'message' => 'Consultation logs retrieved successfully.',
-            'consultation_logs' => $consultationLogs
-        ], 200);
-    }
-
 
 }
