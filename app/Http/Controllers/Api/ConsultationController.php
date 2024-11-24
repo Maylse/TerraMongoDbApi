@@ -309,86 +309,82 @@ class ConsultationController extends Controller
 
 
 //BOTH SURVEYOR AND LAND EXPERT
-public function acceptRequest(Request $request, $id): JsonResponse {
+
+public function acceptRequest(Request $request, $id): JsonResponse
+{
+    return $this->handleRequestAction($request, $id, 'accepted');
+}
+
+public function declineRequest(Request $request, $id): JsonResponse
+{
+    return $this->handleRequestAction($request, $id, 'declined');
+}
+
+// Shared logic for accepting or declining requests
+private function handleRequestAction(Request $request, $id, string $action): JsonResponse
+{
+    // Check if the user is authenticated
+    if (!$request->user()) {
+        return response()->json([
+            'message' => 'Unauthorized. No token provided or the token is invalid.'
+        ], 401);
+    }
+
     // Validate the request
     $request->validate([
         'response_message' => 'nullable|string|max:500',
     ]);
 
-    // Find the consultation request
-    $consultationRequest = ConsultationRequest::findOrFail($id);
-
-    // Check if the authenticated user is authorized to accept the request
+    // Determine user type and fetch corresponding surveyor or expert data
     $user = $request->user();
-    if (($user->user_type === 'expert' && $consultationRequest->expert_id === $user->id) ||
-        ($user->user_type === 'surveyor' && $consultationRequest->surveyor_id === $user->id)) {
-
-        // Update consultation request status
-        $consultationRequest->status = 'accepted';
-        $consultationRequest->response_message = $request->input('response_message');
-        $consultationRequest->save();
-
-        // Create a log entry with additional fields
-        ConsultationLog::create([
-            'consultation_request_id' => $consultationRequest->id,
-            'user_id' => $user->id,
-            'status' => 'accepted',
-            'response_message' => $request->input('response_message'),
-            'message' => $consultationRequest->message,       // Pass consultation request data
-            'date' => $consultationRequest->date,
-            'time' => $consultationRequest->time,
-            'location' => $consultationRequest->location,
-            'rate' => $consultationRequest->rate,
-        ]);
-
-        return response()->json([
-            'message' => 'Consultation request accepted successfully.',
-            'consultation' => $consultationRequest,
-        ], 200);
+    if ($user->user_type === 'surveyor') {
+        $profile = Surveyor::where('user_id', $user->id)->first();
+        $roleField = 'surveyor_id';
+    } elseif ($user->user_type === 'expert') {
+        $profile = LandExpert::where('user_id', $user->id)->first();
+        $roleField = 'expert_id';
+    } else {
+        return response()->json(['message' => 'Unauthorized. Only experts or surveyors can access this resource.'], 403);
     }
 
-    return response()->json(['message' => 'Unauthorized action.'], 403);
-}
+    // Ensure the profile exists
+    if (!$profile) {
+        return response()->json(['message' => ucfirst($user->user_type) . ' profile not found.'], 404);
+    }
 
-public function declineRequest(Request $request, $id): JsonResponse {
-    // Validate the request
-    $request->validate([
-        'response_message' => 'nullable|string|max:500',
+    // Find the consultation request belonging to the authenticated expert/surveyor
+    $consultationRequest = ConsultationRequest::where('_id', $id)
+        ->where($roleField, $profile->_id)
+        ->first();
+
+    // Check if the consultation request exists
+    if (!$consultationRequest) {
+        return response()->json(['message' => 'Consultation request not found or unauthorized.'], 404);
+    }
+
+    // Update consultation request status
+    $consultationRequest->status = $action;
+    $consultationRequest->response_message = $request->input('response_message');
+    $consultationRequest->save();
+
+    // Create a log entry with additional fields
+    ConsultationLog::create([
+        'consultation_request_id' => $consultationRequest->id,
+        'user_id' => $user->id,
+        'status' => $action,
+        'response_message' => $request->input('response_message'),
+        'message' => $consultationRequest->message,
+        'date' => $consultationRequest->date,
+        'time' => $consultationRequest->time,
+        'location' => $consultationRequest->location,
+        'rate' => $consultationRequest->rate,
     ]);
 
-    // Find the consultation request
-    $consultationRequest = ConsultationRequest::findOrFail($id);
-
-    // Check if the authenticated user is authorized to decline the request
-    $user = $request->user();
-    if (($user->user_type === 'expert' && $consultationRequest->expert_id === $user->id) ||
-        ($user->user_type === 'surveyor' && $consultationRequest->surveyor_id === $user->id)) {
-
-        // Update consultation request status
-        $consultationRequest->status = 'declined';
-        $consultationRequest->response_message = $request->input('response_message');
-        $consultationRequest->save();
-
-        // Create a log entry with additional fields
-        ConsultationLog::create([
-            'consultation_request_id' => $consultationRequest->id,
-            'user_id' => $user->id,
-            'status' => 'declined',
-            'response_message' => $request->input('response_message'),
-            'message' => $consultationRequest->message,       // Pass consultation request data
-            'date' => $consultationRequest->date,
-            'time' => $consultationRequest->time,
-            'location' => $consultationRequest->location,
-            'rate' => $consultationRequest->rate,
-        ]);
-
-        return response()->json([
-            'message' => 'Consultation request declined successfully.',
-            'consultation' => $consultationRequest,
-        ], 200);
-    }
-
-    return response()->json(['message' => 'Unauthorized action.'], 403);
+    return response()->json([
+        'message' => "Consultation request {$action} successfully.",
+        'consultation' => $consultationRequest,
+    ], 200);
 }
+
 
 }
