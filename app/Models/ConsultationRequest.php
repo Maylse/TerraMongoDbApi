@@ -14,6 +14,7 @@ class ConsultationRequest extends Model
         'finder_id',
         'expert_id',
         'surveyor_id',
+        'finder_name',
         'message',
         'status',
         'date',
