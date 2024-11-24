@@ -191,22 +191,33 @@ class ConsultationController extends Controller
     }
 
     //FOR EXPERTS
-    public function getExpertConsultationRequests(Request $request): JsonResponse{
-    // Check if the authenticated user is an expert
-    if ($request->user()->user_type !== 'expert') {
+    public function getExpertConsultationRequests(Request $request): JsonResponse
+    {
+        // Check if the authenticated user is an expert
+        if ($request->user()->user_type !== 'expert') {
+            return response()->json([
+                'message' => 'Unauthorized. Only experts can access this resource.'
+            ], 403);
+        }
+    
+        // Fetch the expert's ID from the 'land_experts' collection based on the logged-in user
+        $landExpert = LandExpert::where('user_id', $request->user()->id)->first();
+    
+        if (!$landExpert) {
+            return response()->json([
+                'message' => 'Expert not found.'
+            ], 404);
+        }
+    
+        // Fetch consultation requests where the expert_id matches the expert's _id in the land_experts collection
+        $requests = ConsultationRequest::where('expert_id', $landExpert->_id)
+                                        ->get();
+    
+        // Return the list of consultation requests
         return response()->json([
-            'message' => 'Unauthorized. Only experts can access this resource.'
-        ], 403);
+            'requests' => $requests
+        ], 200);
     }
-    // Fetch consultation requests where the expert_id matches the logged-in expert's ID
-    $requests = ConsultationRequest::where('expert_id', $request->user()->id)
-    ->get();
-    // Return the list of consultation requests
-    return response()->json([
-        'requests' => $requests
-    ], 200);
-}
-
     //FOR SURVEYORS
     public function getSurveyorConsultationRequests(Request $request): JsonResponse
 {
