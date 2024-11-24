@@ -72,7 +72,7 @@ class ConsultationController extends Controller
     {
         // Validate the incoming request data for surveyors
         $request->validate([
-            'expert_id' => 'required|exists:users,id', // Ensure the user exists and is an expert
+            'surveyor_id' => 'required|exists:surveyors,_id', // Ensure the user exists and is an expert
             'message' => 'required|string|max:500', // Limit message length
             'date' => 'required|date', // Validate the date field
             'time' => 'required|date_format:h:i A', // Ensure time is in 12-hour format (with AM/PM)
