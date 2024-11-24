@@ -51,7 +51,6 @@ public function getSurveyors(Request $request): JsonResponse
             'message' => 'Unauthorized. Only finders can access this resource.'
         ], 403);
     }
-
      // Fetch experts from the land_experts table that are referenced by user_id
      $surveyors = Surveyor::with('user') // Eager load the associated user data
      ->get();
@@ -60,10 +59,10 @@ public function getSurveyors(Request $request): JsonResponse
     $formattedSurveyors = $surveyors->map(function($surveyor) {
         return [
             'id' => $surveyor->id,
-            'name' => $surveyor->name,
-            'email' => $surveyor->email,
-            'certification_id' => $surveyor->surveyor->certification_id,
-            'license_number' => $surveyor->surveyor->license_number
+            'name' => $surveyor->user->name,  // Access user info through the relationship
+            'email' => $surveyor->user->email,
+            'certification_id' => $surveyor->certification_id,
+            'license_number' => $surveyor->license_number
         ];
     });
 
