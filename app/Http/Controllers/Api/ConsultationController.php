@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ConsultationLog;
 use App\Models\ConsultationRequest;
 use App\Models\LandExpert;
+use App\Models\Surveyor;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -39,9 +40,8 @@ class ConsultationController extends Controller
         'rate' => 'required|numeric|min:0',
     ]);
 
-    // Fetch the land expert based on the expert_id (which corresponds to the _id in land_experts)
-    $expert = LandExpert::find($request->expert_id); // Use the _id to find the expert in land_experts collection
-
+    
+    $expert = LandExpert::find($request->expert_id);
     if (!$expert) {
         return response()->json([
             'message' => 'Expert not found.',
@@ -52,6 +52,7 @@ class ConsultationController extends Controller
     $consultation = ConsultationRequest::create([
         'finder_id' => $request->user()->id, // Get the authenticated finder's ID
         'expert_id' => $expert->_id, // Use the _id from the land_experts collection
+        'finder_name' => $request->user()->name,
         'message' => $request->message,
         'status' => 'pending',
         'date' => $request->date,
@@ -79,11 +80,9 @@ class ConsultationController extends Controller
             'rate' => 'required|numeric|min:0', // Validate the rate field to be a number greater than or equal to 0
         ]);
     
-        // Fetch the surveyor ID based on the user ID of the authenticated user
-        $surveyor = User::where('user_type', 'surveyor')
-                        ->where('id', $request->surveyor_id) // Assuming you have surveyor_id in the request
-                        ->first();
     
+                        
+    $surveyor = Surveyor::find($request->surveyor_id);
         if (!$surveyor) {
             return response()->json([
                 'message' => 'Surveyor not found.',
@@ -93,7 +92,8 @@ class ConsultationController extends Controller
         // Create the consultation request for the expert
         $consultation = ConsultationRequest::create([
             'finder_id' => $request->user()->id, // Get the authenticated finder's ID
-            'surveyor_id' => $surveyor->id, // Expert's ID from the retrieved user
+            'surveyor_id' => $surveyor->_id, // Expert's ID from the retrieved user
+            'finder_name' => $request->user()->name,
             'message' => $request->message,
              'status' => 'pending',
              'date' => $request->date, // Save the date
