@@ -29,9 +29,7 @@ class ConsultationController extends Controller
         }
     
         // Fetch all consultation requests where the finder_id matches the user's ID from the finders table
-        $requests = ConsultationRequest::where('finder_id', $finder->_id)  // Assuming 'finder_id' refers to the _id in the ConsultationRequest collection
-            ->with(['expert', 'surveyor']) // Load the related expert and surveyor data
-            ->get();
+        $requests = ConsultationRequest::where('finder_id', $finder->_id)->get();
     
         // Return the list of consultation requests
         return response()->json([
