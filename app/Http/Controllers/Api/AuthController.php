@@ -165,7 +165,17 @@ return response()->json([
             'email' => $request->email ?? $user->email, // Update email if provided
             'password' => $request->password ? Hash::make($request->password) : $user->password, // Update password if provided
         ]);
-    
+            
+        // Update the name in the Finder table if the user is a finder
+        if ($user->user_type === 'finder') {
+            $finder = Finder::where('user_id', $user->id)->first();
+
+            if ($finder) {
+                $finder->name = $user->name; // Update the name in the Finder document
+                $finder->save(); // Save the updated Finder document
+            }
+        }
+                
         return response()->json([
             'message' => 'Profile updated successfully.',
             'user' => $user,
