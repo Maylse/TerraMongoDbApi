@@ -121,8 +121,14 @@ public function getConsultationLogs(): JsonResponse
         ], 404);
     }
 
-    // Delete the user
+    // Manually delete related models
+    $user->landExpert()->delete(); // Delete related LandExpert
+    $user->surveyor()->delete(); // Delete related Surveyor
+    $user->finder()->delete(); // Delete related Finder
+
+    // Now delete the user
     $user->delete();
+
 
     return response()->json([
         'message' => 'User terminated successfully.'

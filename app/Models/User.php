@@ -48,18 +48,19 @@ class User extends Model // Extend the MongoDB Model
         'password' => 'hashed', // Ensure passwords are hashed
     ];
 
-    public function expert()
-{
-    return $this->hasOne(LandExpert::class); // Assuming the relationship is still to LandExpert
-}
+
+     public function landExpert()
+    {
+        return $this->hasOne(LandExpert::class, 'user_id')->onDelete('cascade'); // Cascade delete
+    }
+
 
     public function surveyor()
     {
-        return $this->hasOne(Surveyor::class);
+        return $this->hasOne(Surveyor::class, 'user_id')->onDelete('cascade'); // Cascade delete
     }
-
-    public function landExpert()
-{
-    return $this->hasOne(LandExpert::class, 'user_id'); // Specify the foreign key if needed
-}
+    public function finder()
+    {
+        return $this->hasOne(Finder::class, 'user_id')->onDelete('cascade'); // Cascade delete
+    }
 }

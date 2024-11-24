@@ -16,14 +16,9 @@ class Finder extends Model
 
     protected $fillable = ['user_id', 'name'];
 
-    /**
-     * Relationship with the User model.
-     * Each Finder belongs to a User.
-     *
-     * @return BelongsTo
-     */
+    
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id'); // Foreign key is 'user_id'
     }
 }

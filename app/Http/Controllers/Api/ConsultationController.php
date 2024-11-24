@@ -192,22 +192,37 @@ class ConsultationController extends Controller
     }
 
     //FOR EXPERTS
-    public function getExpertConsultationRequests(Request $request): JsonResponse{
-    // Check if the authenticated user is an expert
-    if ($request->user()->user_type !== 'expert') {
+    public function getExpertConsultationRequests(Request $request): JsonResponse
+    {
+        // Check if the authenticated user is an expert
+        if ($request->user()->user_type !== 'expert') {
+            return response()->json([
+                'message' => 'Unauthorized. Only experts can access this resource.'
+            ], 403);
+        }
+    
+        // Fetch consultation requests with the finder's information using eager loading
+        $requests = ConsultationRequest::where('expert_id', $request->user()->id)
+            ->with('finder')  // Eager load the related finder data
+            ->get();
+    
+        // Format the response including finder details
         return response()->json([
-            'message' => 'Unauthorized. Only experts can access this resource.'
-        ], 403);
+            'requests' => $requests->map(function ($request) {
+                return [
+                    'id' => $request->id,
+                    'finder_name' => $request->finder->name ?? 'Unknown', // Access finder's name through relationship
+                    'message' => $request->message,
+                    'status' => $request->status,
+                    'date' => $request->date,
+                    'time' => $request->time,
+                    'location' => $request->location,
+                    'rate' => $request->rate,
+                    'created_at' => $request->created_at,
+                ];
+            })
+        ], 200);
     }
-    // Fetch consultation requests where the expert_id matches the logged-in expert's ID
-    $requests = ConsultationRequest::where('expert_id', $request->user()->id)
-    ->get();
-    // Return the list of consultation requests
-    return response()->json([
-        'requests' => $requests
-    ], 200);
-}
-
     //FOR SURVEYORS
     public function getSurveyorConsultationRequests(Request $request): JsonResponse
 {
