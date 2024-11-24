@@ -28,61 +28,45 @@ class ConsultationController extends Controller
     }
 
     public function requestExpertConsultation(Request $request): JsonResponse
-    {
-        // Validate the incoming request data for experts
-        $request->validate([
-            'expert_id' => 'required|exists:land_experts,user_id', // Ensure the expert exists in land_experts table
-            'message' => 'required|string|max:500', // Limit message length
-            'date' => 'required|date', // Validate the date field
-            'time' => 'required|date_format:h:i A', // Ensure time is in 12-hour format (with AM/PM)
-            'location' => 'required|string|max:255', // Ensure location is a string with max length
-            'rate' => 'required|numeric|min:0', // Validate the rate field to be a number greater than or equal to 0
-        ]);
-    
-        // Fetch the expert from the land_experts table using the user_id
-        $landExpert = LandExpert::where('user_id', $request->expert_id)->first();
-    
-        if (!$landExpert) {
-            return response()->json([
-                'message' => 'Expert not found in land_experts table.',
-            ], 404);
-        }
-    
-        // Get the associated User model for the expert
-        $expert = $landExpert->user; // This uses the relationship to get the User model
-    
-        if (!$expert) {
-            return response()->json([
-                'message' => 'Expert user not found.',
-            ], 404);
-        }
-    
-        try {
-            // Create the consultation request
-            $consultation = ConsultationRequest::create([
-                'finder_id' => $request->user()->id, // Get the authenticated finder's ID
-                'expert_id' => $expert->_id, // Use the _id of the User model for the expert
-                'message' => $request->message,
-                'status' => 'pending',
-                'date' => $request->date, // Save the date
-                'time' => $request->time, // Save the time (ensure it's 12-hour format)
-                'location' => $request->location, // Save the location
-                'rate' => $request->rate, // Save the rate
-            ]);
-    
-            return response()->json([
-                'message' => 'Consultation request sent to expert successfully.',
-                'consultation' => $consultation,
-            ], 201);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to send consultation request.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+{
+    // Validate the incoming request data for experts
+    $request->validate([
+        'expert_id' => 'required|exists:land_experts,_id', // Ensure the expert_id exists in the land_experts collection
+        'message' => 'required|string|max:500',
+        'date' => 'required|date',
+        'time' => 'required|date_format:h:i A',
+        'location' => 'required|string|max:255',
+        'rate' => 'required|numeric|min:0',
+    ]);
+
+    // Fetch the land expert based on the expert_id (which corresponds to the _id in land_experts)
+    $expert = LandExpert::find($request->expert_id); // Use the _id to find the expert in land_experts collection
+
+    if (!$expert) {
+        return response()->json([
+            'message' => 'Expert not found.',
+        ], 404);
     }
-    
+
+    // Create the consultation request for the expert
+    $consultation = ConsultationRequest::create([
+        'finder_id' => $request->user()->id, // Get the authenticated finder's ID
+        'expert_id' => $expert->_id, // Use the _id from the land_experts collection
+        'message' => $request->message,
+        'status' => 'pending',
+        'date' => $request->date,
+        'time' => $this->formatTime($request->time),
+        'location' => $request->location,
+        'rate' => $request->rate,
+    ]);
+
+    // Return success response
+    return response()->json([
+        'message' => 'Consultation request sent to expert successfully.',
+        'consultation' => $consultation,
+    ], 201);
+}
+
     public function requestSurveyorConsultation(Request $request): JsonResponse
     {
         // Validate the incoming request data for surveyors
@@ -207,37 +191,22 @@ class ConsultationController extends Controller
     }
 
     //FOR EXPERTS
-    public function getExpertConsultationRequests(Request $request): JsonResponse
-    {
-        // Check if the authenticated user is an expert
-        if ($request->user()->user_type !== 'expert') {
-            return response()->json([
-                'message' => 'Unauthorized. Only experts can access this resource.'
-            ], 403);
-        }
-    
-        // Fetch consultation requests with the finder's information using eager loading
-        $requests = ConsultationRequest::where('expert_id', $request->user()->id)
-            ->with('finder')  // Eager load the related finder data
-            ->get();
-    
-        // Format the response including finder details
+    public function getExpertConsultationRequests(Request $request): JsonResponse{
+    // Check if the authenticated user is an expert
+    if ($request->user()->user_type !== 'expert') {
         return response()->json([
-            'requests' => $requests->map(function ($request) {
-                return [
-                    'id' => $request->id,
-                    'finder_name' => $request->finder->name ?? 'Unknown', // Access finder's name through relationship
-                    'message' => $request->message,
-                    'status' => $request->status,
-                    'date' => $request->date,
-                    'time' => $request->time,
-                    'location' => $request->location,
-                    'rate' => $request->rate,
-                    'created_at' => $request->created_at,
-                ];
-            })
-        ], 200);
+            'message' => 'Unauthorized. Only experts can access this resource.'
+        ], 403);
     }
+    // Fetch consultation requests where the expert_id matches the logged-in expert's ID
+    $requests = ConsultationRequest::where('expert_id', $request->user()->id)
+    ->get();
+    // Return the list of consultation requests
+    return response()->json([
+        'requests' => $requests
+    ], 200);
+}
+
     //FOR SURVEYORS
     public function getSurveyorConsultationRequests(Request $request): JsonResponse
 {
