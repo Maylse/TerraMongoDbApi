@@ -139,45 +139,61 @@ class ConsultationController extends Controller
 
     //UPDATE 
     public function updateRequest(Request $request, $id): JsonResponse
-{
-    // Validate the incoming request data
-    $request->validate([
-        'message' => 'required|string|max:500',
-        'date' => 'required|date',
-        'time' => 'required|date_format:h:i A',
-        'location' => 'required|string|max:255',
-        'rate' => 'required|numeric|min:0',
-    ]);
-
-    // Fetch the consultation request by its MongoDB '_id'
-    $consultationRequest = ConsultationRequest::where('_id', $id)
-        ->where('finder_id', $request->user()->id) // Ensure it belongs to the authenticated finder
-        ->first();
-
-    // Check if the consultation request exists and belongs to the user
-    if (!$consultationRequest) {
-        return response()->json(['message' => 'Consultation request not found or unauthorized.'], 404);
+    {
+        // Authenticate and validate user type
+        if (!$request->user() || $request->user()->user_type !== 'finder') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+    
+        // Fetch the finder document using the authenticated user's ID
+        $finder = Finder::where('user_id', $request->user()->id)->first();
+    
+        if (!$finder) {
+            return response()->json(['message' => 'Finder not found.'], 404);
+        }
+    
+        // Find the consultation request and ensure it belongs to the authenticated finder
+        $consultationRequest = ConsultationRequest::where('_id', $id)
+            ->where('finder_id', $finder->_id)  // Ensure this request belongs to the finder
+            ->first();
+    
+        if (!$consultationRequest) {
+            return response()->json(['message' => 'Consultation request not found or unauthorized.'], 404);
+        }
+    
+        // Validate the incoming request data
+        $request->validate([
+            'message' => 'required|string|max:500',
+            'date' => 'required|date',
+            'time' => 'required|date_format:h:i A',
+            'location' => 'required|string|max:255',
+            'rate' => 'required|numeric|min:0',
+        ]);
+    
+        // Check if the status is still pending
+        if ($consultationRequest->status !== 'pending') {
+            return response()->json(['message' => 'You can only edit requests with a pending status.'], 403);
+        }
+    
+        // Update the fields
+        $consultationRequest->message = $request->message;
+        $consultationRequest->date = $request->date;
+        $consultationRequest->time = $this->formatTime($request->time);
+        $consultationRequest->location = $request->location;
+        $consultationRequest->rate = $request->rate;
+    
+        // Save the updated consultation request
+        try {
+            $consultationRequest->save();
+            return response()->json([
+                'message' => 'Consultation request updated successfully.',
+                'request' => $consultationRequest,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'An error occurred while updating the request.'], 500);
+        }
     }
-
-    // Ensure the request is still pending
-    if ($consultationRequest->status !== 'pending') {
-        return response()->json(['message' => 'Only pending requests can be updated.'], 403);
-    }
-
-    // Update the consultation request fields
-    $consultationRequest->update([
-        'message' => $request->message,
-        'date' => $request->date,
-        'time' => $this->formatTime($request->time),
-        'location' => $request->location,
-        'rate' => $request->rate,
-    ]);
-
-    return response()->json([
-        'message' => 'Consultation request updated successfully.',
-        'request' => $consultationRequest,
-    ], 200);
-}
+    
     
     public function deleteRequest(Request $request, $id): JsonResponse
     {
