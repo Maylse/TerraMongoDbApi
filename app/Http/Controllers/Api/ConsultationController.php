@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ConsultationLog;
 use App\Models\ConsultationRequest;
+use App\Models\Finder;
 use App\Models\LandExpert;
 use App\Models\Surveyor;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+
 
 class ConsultationController extends Controller
 {
@@ -17,17 +19,26 @@ class ConsultationController extends Controller
     //FOR FINDERS
     public function getFinderRequests(Request $request): JsonResponse
     {
-        // Fetch all consultation requests for the authenticated finder
-        $requests = ConsultationRequest::where('finder_id', $request->user()->id)
+        // Fetch the authenticated user's ID from the 'finders' table
+        $finder = Finder::where('user_id', $request->user()->id)->first(); // Assuming Finder is the model for the finders collection
+    
+        if (!$finder) {
+            return response()->json([
+                'message' => 'Finder not found.'
+            ], 404);
+        }
+    
+        // Fetch all consultation requests where the finder_id matches the user's ID from the finders table
+        $requests = ConsultationRequest::where('finder_id', $finder->_id)  // Assuming 'finder_id' refers to the _id in the ConsultationRequest collection
             ->with(['expert', 'surveyor']) // Load the related expert and surveyor data
             ->get();
     
-        // Return the list of requests
+        // Return the list of consultation requests
         return response()->json([
             'requests' => $requests
         ], 200);
     }
-
+    
     public function requestExpertConsultation(Request $request): JsonResponse
 {
     // Validate the incoming request data for experts
