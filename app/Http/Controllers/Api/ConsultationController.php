@@ -197,9 +197,21 @@ class ConsultationController extends Controller
     
     public function deleteRequest(Request $request, $id): JsonResponse
     {
-        // Find the consultation request by ID
-        $consultationRequest = ConsultationRequest::where('id', $id)
-            ->where('finder_id', $request->user()->id) // Ensure the request belongs to the authenticated finder
+        // Authenticate and validate user type
+        if (!$request->user() || $request->user()->user_type !== 'finder') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+    
+        // Fetch the finder document using the authenticated user's ID
+        $finder = Finder::where('user_id', $request->user()->id)->first();
+    
+        if (!$finder) {
+            return response()->json(['message' => 'Finder not found.'], 404);
+        }
+    
+        // Find the consultation request and ensure it belongs to the authenticated finder
+        $consultationRequest = ConsultationRequest::where('_id', $id)
+            ->where('finder_id', $finder->_id)  // Verify ownership
             ->first();
     
         if (!$consultationRequest) {
@@ -211,12 +223,15 @@ class ConsultationController extends Controller
             return response()->json(['message' => 'You can only delete requests with a pending status.'], 403);
         }
     
-        // Delete the request
-        $consultationRequest->delete();
-    
-        return response()->json(['message' => 'Consultation request deleted successfully.'], 200);
+        // Delete the consultation request
+        try {
+            $consultationRequest->delete();
+            return response()->json(['message' => 'Consultation request deleted successfully.'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'An error occurred while deleting the request.'], 500);
+        }
     }
-
+    
     //FOR EXPERTS
     public function getExpertConsultationRequests(Request $request): JsonResponse
 
