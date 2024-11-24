@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ConsultationLog;
 use App\Models\ConsultationRequest;
+use App\Models\LandExpert;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -28,44 +29,58 @@ class ConsultationController extends Controller
 
     public function requestExpertConsultation(Request $request): JsonResponse
     {
-         // Validate the incoming request data for experts
-         $request->validate([
-            'expert_id' => 'required|exists:users,id', // Ensure the user exists and is an expert
+        // Validate the incoming request data for experts
+        $request->validate([
+            'expert_id' => 'required|exists:land_experts,user_id', // Ensure the expert exists in land_experts table
             'message' => 'required|string|max:500', // Limit message length
             'date' => 'required|date', // Validate the date field
             'time' => 'required|date_format:h:i A', // Ensure time is in 12-hour format (with AM/PM)
             'location' => 'required|string|max:255', // Ensure location is a string with max length
             'rate' => 'required|numeric|min:0', // Validate the rate field to be a number greater than or equal to 0
         ]);
-
-        // Fetch the expert ID based on the user ID of the authenticated user
-        $expert = User::where('user_type', 'expert')
-                      ->where('id', $request->expert_id) // Assuming you have expert_id in the request
-                      ->first();
     
-        if (!$expert) {
+        // Fetch the expert from the land_experts table using the user_id
+        $landExpert = LandExpert::where('user_id', $request->expert_id)->first();
+    
+        if (!$landExpert) {
             return response()->json([
-                'message' => 'Expert not found.',
+                'message' => 'Expert not found in land_experts table.',
             ], 404);
         }
     
-        // Create the consultation request for the expert
-        $consultation = ConsultationRequest::create([
-            'finder_id' => $request->user()->id, // Get the authenticated finder's ID
-            'expert_id' => $expert->id, // Expert's ID from the retrieved user
-            'message' => $request->message,
-             'status' => 'pending',
-             'date' => $request->date, // Save the date
-             'time' => $this->formatTime($request->time), // Save the time in 12-hour format
-             'location' => $request->location, // Save the location
-             'rate' => $request->rate, // Save the rate
-        ]);
+        // Get the associated User model for the expert
+        $expert = $landExpert->user; // This uses the relationship to get the User model
     
-        // Return success response
-        return response()->json([
-            'message' => 'Consultation request sent to expert successfully.',
-            'consultation' => $consultation,
-        ], 201);
+        if (!$expert) {
+            return response()->json([
+                'message' => 'Expert user not found.',
+            ], 404);
+        }
+    
+        try {
+            // Create the consultation request
+            $consultation = ConsultationRequest::create([
+                'finder_id' => $request->user()->id, // Get the authenticated finder's ID
+                'expert_id' => $expert->_id, // Use the _id of the User model for the expert
+                'message' => $request->message,
+                'status' => 'pending',
+                'date' => $request->date, // Save the date
+                'time' => $request->time, // Save the time (ensure it's 12-hour format)
+                'location' => $request->location, // Save the location
+                'rate' => $request->rate, // Save the rate
+            ]);
+    
+            return response()->json([
+                'message' => 'Consultation request sent to expert successfully.',
+                'consultation' => $consultation,
+            ], 201);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to send consultation request.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
     
     public function requestSurveyorConsultation(Request $request): JsonResponse
