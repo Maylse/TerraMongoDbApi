@@ -192,7 +192,15 @@ class ConsultationController extends Controller
 
     //FOR EXPERTS
     public function getExpertConsultationRequests(Request $request): JsonResponse
+
     {
+
+        if (!$request->user()) {
+            return response()->json([
+                'message' => 'Unauthorized. No token provided or the token is invalid.'
+            ], 401);
+        }
+
         // Check if the authenticated user is an expert
         if ($request->user()->user_type !== 'expert') {
             return response()->json([
@@ -235,9 +243,15 @@ class ConsultationController extends Controller
         ], 403);
     }
 
-    // Fetch consultation requests where the surveyor_id matches the logged-in surveyor's ID
-    $requests = ConsultationRequest::where('surveyor_id', $request->user()->_id)
+   // Fetch the expert's ID from the 'land_experts' collection based on the logged-in user
+   $surveyor = Surveyor::where('user_id', $request->user()->id)->first();
+    
+
+    // Fetch consultation requests where the expert_id matches the expert's _id in the land_experts collection
+    $requests = ConsultationRequest::where('surveyor_id', $surveyor->_id)
     ->get();
+
+  
     // Handle case when no requests are found
     if ($requests->isEmpty()) {
         return response()->json([
@@ -245,11 +259,9 @@ class ConsultationController extends Controller
         ], 404);
     }
 
-    // Return the list of consultation requests
-    return response()->json([
-        'message' => 'Consultation requests retrieved successfully.',
-        'requests' => $requests,
-        'count' => $requests->count(),
+     // Return the list of consultation requests
+     return response()->json([
+        'requests' => $requests
     ], 200);
 }
 
