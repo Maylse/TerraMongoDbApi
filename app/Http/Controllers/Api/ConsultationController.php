@@ -19,45 +19,74 @@ class ConsultationController extends Controller
     //FOR FINDERS
     public function getFinderRequests(Request $request): JsonResponse
     {
-        // Check if the user is authenticated
-        if (!$request->user()) {
-            return response()->json([
-                'message' => 'Unauthorized. No token provided or the token is invalid.'
-            ], 401);
+        // Authenticate and validate user type
+        if (!$request->user() || $request->user()->user_type !== 'finder') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
         }
     
-        // Check if the authenticated user is a finder
-        if ($request->user()->user_type !== 'finder') {
-            return response()->json([
-                'message' => 'Unauthorized. Only finders can access this resource.'
-            ], 403);
-        }
-    
-        // Fetch the authenticated user's ID from the 'finders' collection
+        // Fetch the finder document using user_id
         $finder = Finder::where('user_id', $request->user()->id)->first();
     
-        // Check if the finder record exists
         if (!$finder) {
-            return response()->json([
-                'message' => 'Finder not found.'
-            ], 404);
+            return response()->json(['message' => 'Finder not found.'], 404);
         }
     
-        // Fetch all consultation requests where the finder_id matches the found finder's _id
+        // Fetch consultation requests where 'finder_id' matches the finder's '_id'
         $requests = ConsultationRequest::where('finder_id', $finder->_id)->get();
     
-        // Return the list of consultation requests
-        return response()->json([
-            'requests' => $requests
-        ], 200);
+        return response()->json(['requests' => $requests], 200);
     }
     
     
+    
     public function requestExpertConsultation(Request $request): JsonResponse
+    {
+        // Validate the incoming request data
+        $request->validate([
+            'expert_id' => 'required|exists:land_experts,_id',
+            'message' => 'required|string|max:500',
+            'date' => 'required|date',
+            'time' => 'required|date_format:h:i A',
+            'location' => 'required|string|max:255',
+            'rate' => 'required|numeric|min:0',
+        ]);
+    
+        // Check if the expert exists
+        $expert = LandExpert::find($request->expert_id);
+        if (!$expert) {
+            return response()->json(['message' => 'Expert not found.'], 404);
+        }
+    
+        // Fetch the authenticated finder
+        $finder = Finder::where('user_id', $request->user()->id)->first();
+        if (!$finder) {
+            return response()->json(['message' => 'Finder profile not found.'], 404);
+        }
+    
+        // Create the consultation request
+        $consultation = ConsultationRequest::create([
+            'finder_id' => $finder->_id,  // Use finder's '_id'
+            'expert_id' => $expert->_id,
+            'finder_name' => $finder->name,
+            'message' => $request->message,
+            'status' => 'pending',
+            'date' => $request->date,
+            'time' => $this->formatTime($request->time),
+            'location' => $request->location,
+            'rate' => $request->rate,
+        ]);
+    
+        return response()->json([
+            'message' => 'Consultation request sent to expert successfully.',
+            'consultation' => $consultation,
+        ], 201);
+    }
+
+    public function requestSurveyorConsultation(Request $request): JsonResponse
 {
-    // Validate the incoming request data for experts
+    // Validate the incoming request data
     $request->validate([
-        'expert_id' => 'required|exists:land_experts,_id', // Ensure the expert_id exists in the land_experts collection
+        'surveyor_id' => 'required|exists:surveyors,_id',
         'message' => 'required|string|max:500',
         'date' => 'required|date',
         'time' => 'required|date_format:h:i A',
@@ -65,19 +94,23 @@ class ConsultationController extends Controller
         'rate' => 'required|numeric|min:0',
     ]);
 
-    
-    $expert = LandExpert::find($request->expert_id);
-    if (!$expert) {
-        return response()->json([
-            'message' => 'Expert not found.',
-        ], 404);
+    // Check if the surveyor exists
+    $surveyor = Surveyor::find($request->surveyor_id);
+    if (!$surveyor) {
+        return response()->json(['message' => 'Surveyor not found.'], 404);
     }
 
-    // Create the consultation request for the expert
+    // Fetch the authenticated finder
+    $finder = Finder::where('user_id', $request->user()->id)->first();
+    if (!$finder) {
+        return response()->json(['message' => 'Finder profile not found.'], 404);
+    }
+
+    // Create the consultation request
     $consultation = ConsultationRequest::create([
-        'finder_id' => $request->user()->id, // Get the authenticated finder's ID
-        'expert_id' => $expert->_id, // Use the _id from the land_experts collection
-        'finder_name' => $request->user()->name,
+        'finder_id' => $finder->_id,
+        'surveyor_id' => $surveyor->_id,
+        'finder_name' => $finder->name,
         'message' => $request->message,
         'status' => 'pending',
         'date' => $request->date,
@@ -86,54 +119,11 @@ class ConsultationController extends Controller
         'rate' => $request->rate,
     ]);
 
-    // Return success response
     return response()->json([
-        'message' => 'Consultation request sent to expert successfully.',
+        'message' => 'Consultation request sent to surveyor successfully.',
         'consultation' => $consultation,
     ], 201);
 }
-
-    public function requestSurveyorConsultation(Request $request): JsonResponse
-    {
-        // Validate the incoming request data for surveyors
-        $request->validate([
-            'surveyor_id' => 'required|exists:surveyors,_id', // Ensure the user exists and is an expert
-            'message' => 'required|string|max:500', // Limit message length
-            'date' => 'required|date', // Validate the date field
-            'time' => 'required|date_format:h:i A', // Ensure time is in 12-hour format (with AM/PM)
-            'location' => 'required|string|max:255', // Ensure location is a string with max length
-            'rate' => 'required|numeric|min:0', // Validate the rate field to be a number greater than or equal to 0
-        ]);
-    
-    
-                        
-    $surveyor = Surveyor::find($request->surveyor_id);
-        if (!$surveyor) {
-            return response()->json([
-                'message' => 'Surveyor not found.',
-            ], 404);
-        }
-    
-        // Create the consultation request for the expert
-        $consultation = ConsultationRequest::create([
-            'finder_id' => $request->user()->id, // Get the authenticated finder's ID
-            'surveyor_id' => $surveyor->_id, // Expert's ID from the retrieved user
-            'finder_name' => $request->user()->name,
-            'message' => $request->message,
-             'status' => 'pending',
-             'date' => $request->date, // Save the date
-             'time' => $this->formatTime($request->time), // Save the time in 12-hour format
-             'location' => $request->location, // Save the location
-             'rate' => $request->rate, // Save the rate
-        ]);
-    
-        // Return success response
-        return response()->json([
-            'message' => 'Consultation request sent to surveyor successfully.',
-            'consultation' => $consultation,
-        ], 201);
-    }
-
     //FORMAT TIME
     protected function formatTime($time)
         {
