@@ -19,38 +19,39 @@ class ConsultationController extends Controller
     //FOR FINDERS
     public function getFinderRequests(Request $request): JsonResponse
     {
-
-              // Check if the user is authenticated
-              if (!$request->user()) {
-                return response()->json([
-                    'message' => 'Unauthorized. No token provided or the token is invalid.'
-                ], 401);
-            }
+        // Check if the user is authenticated
+        if (!$request->user()) {
+            return response()->json([
+                'message' => 'Unauthorized. No token provided or the token is invalid.'
+            ], 401);
+        }
     
-            // Check if the authenticated user is a finder
-            if ($request->user()->user_type !== 'finder') {
-                return response()->json([
-                    'message' => 'Unauthorized. Only surveyors can access this resource.'
-                ], 403);
-            }
-
-         // Fetch the authenticated user's ID from the 'finders' table
-         $finder = Finder::where('user_id', $request->user()->id)->first(); // Assuming Finder is the model for the finders collection
-  
-
+        // Check if the authenticated user is a finder
+        if ($request->user()->user_type !== 'finder') {
+            return response()->json([
+                'message' => 'Unauthorized. Only finders can access this resource.'
+            ], 403);
+        }
+    
+        // Fetch the authenticated user's ID from the 'finders' collection
+        $finder = Finder::where('user_id', $request->user()->id)->first();
+    
+        // Check if the finder record exists
         if (!$finder) {
             return response()->json([
                 'message' => 'Finder not found.'
             ], 404);
         }
-           // Fetch all consultation requests where the finder_id matches the user's ID from the finders table
-           $requests = ConsultationRequest::where('finder_id', $finder->_id)->get();
-        
-      
-            return response()->json([
-                'requests' => $requests
-            ], 200);
-        }
+    
+        // Fetch all consultation requests where the finder_id matches the found finder's _id
+        $requests = ConsultationRequest::where('finder_id', $finder->_id)->get();
+    
+        // Return the list of consultation requests
+        return response()->json([
+            'requests' => $requests
+        ], 200);
+    }
+    
     
     public function requestExpertConsultation(Request $request): JsonResponse
 {
