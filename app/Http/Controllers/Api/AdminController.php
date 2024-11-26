@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Api;
 use App\Models\User;
 use App\Models\Update;
+use App\Models\Finder;
+use App\Models\LandExpert;
+use App\Models\Surveyor;
+use App\Models\ConsultationRequest;
 use App\Http\Controllers\Controller;
 use App\Models\ConsultationLog;
 use Illuminate\Http\Request;
@@ -111,27 +115,35 @@ public function getConsultationLogs(): JsonResponse
     }
 
     public function terminateUser($id): JsonResponse
-{
-    // Find the user by ID
-    $user = User::find($id);
-
-    if (!$user) {
+    {
+        // Find the user by ID
+        $user = User::find($id);
+    
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found.'
+            ], 404);
+        }
+    
+        // Retrieve all finders associated with this user
+        $finders = Finder::where('user_id', $id)->get();
+    
+        // Delete related Consultation Requests for each finder
+        foreach ($finders as $finder) {
+            ConsultationRequest::where('finder_id', $finder->_id)->delete();
+        }
+    
+        // Manually delete related documents in other collections
+        Surveyor::where('user_id', $id)->delete();
+        LandExpert::where('user_id', $id)->delete();
+        Finder::where('user_id', $id)->delete();  // Delete all finders associated with the user
+    
+        // Now delete the user
+        $user->delete();
+    
         return response()->json([
-            'message' => 'User not found.'
-        ], 404);
+            'message' => 'User terminated successfully.'
+        ], 200);
     }
-
-    // Manually delete related models
-    $user->landExpert()->delete(); // Delete related LandExpert
-    $user->surveyor()->delete(); // Delete related Surveyor
-    $user->finder()->delete(); // Delete related Finder
-
-    // Now delete the user
-    $user->delete();
-
-
-    return response()->json([
-        'message' => 'User terminated successfully.'
-    ], 200);
-}
+    
 }
